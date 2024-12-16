@@ -1,45 +1,19 @@
-import socket
-import threading
-
-print_lock = threading.Lock()  # global lock
-
-def threaded(c):  # thread func with client socket c
-    while True:
-        # data received from client
-        data = c.recv(1024)
-        if not data:
-            print('Bye')
-            print_lock.release()  # release lock on exit
-            break
-        # reverse and send back the string from client
-        data = data[::-1]
-        c.send(data)
-    
-    c.close()  # close connection
-
-def Main():
-    host = ""
-    port = 12345
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind((host, port))
-    print("socket binded to port", port)
-
-    # put the socket into listening mode
-    s.listen(5)
-    print("socket is listening")
-
-    # a forever loop until client wants to exit
-    while True:
-        # establish connection with client
-        c, addr = s.accept()
-
-        # lock acquired by client
-        print_lock.acquire()
-        print('Connected to :', addr[0], ':', addr[1])
-
-        # Start a new thread and return its identifier
-        t = threading.Thread(target=threaded, args=(c,))
-        t.start()
-
-if __name__ == '__main__':
-    Main()
+from socket import socket, AF_INET, SOCK_STREAM
+from ssl import SSLContext, PROTOCOL_TLS_SERVER
+ip= '127.0.0.1'
+port = 8443
+context= SSLContext(PROTOCOL_TLS_SERVER)
+context.load_cert_chain(certfile="cert.pem", keyfile="private.key")
+# cert&key#context.load_cert_chain('cert.pem', 'keyNoPwd.key')
+#context.load_cert_chain('cert.pem', 'private.key', 'pwd')
+with socket(AF_INET, SOCK_STREAM) as server:
+    server.bind((ip, port))
+    server.listen(1)
+    with context.wrap_socket(server, server_side=True) as tls:
+        while True:  # service loop
+            conn, addr = tls.accept()
+            print(f'Connectedby {addr}\n')
+            data = conn.recv(1024)
+            print(f'Client Says: {data}')
+            conn.sendall(b"You're welcome")
+            conn.close()
